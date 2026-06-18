@@ -1,3 +1,4 @@
+import os
 import sys
 
 import uvicorn
@@ -7,7 +8,9 @@ from app.config.settings import get_settings
 
 def main():
     env = sys.argv[1] if len(sys.argv) > 1 else "dev"
-    settings = get_settings(env)
+    os.environ["ENV"] = env
+
+    settings = get_settings()
 
     print(f"Starting server with [{env}] config...")
     uvicorn.run(
