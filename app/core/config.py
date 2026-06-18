@@ -21,6 +21,21 @@ class Settings(BaseSettings):
     aws_secret_name: str = "QA_Investment"
     local_aws_token: str = ""
 
+    # DocumentDB (Savings DB)
+    documentdb_host: str = ""
+    savings_db_name: str = ""
+
+    # MongoDB (Logs DB)
+    mongodb_host: str = ""
+
+    # Redis
+    redis_endpoint: str = ""
+
+    # Qdrant
+    qdrant_url: str = ""
+    qdrant_port: int = 443
+    qdrant_basic_user: str = ""
+
 
 def get_settings(env: str = "dev") -> Settings:
     env_file = BASE_DIR / f"env.{env}"
