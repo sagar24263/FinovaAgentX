@@ -1,7 +1,7 @@
 import uuid
-from app.models.customer import CustomerProfileRequest
 from app.config.mongo import get_collection
 from app.config.redis import get_redis_client
+from app.models.customer import CustomerProfileRequest
 from app.utils.logger import get_logger
 
 _logger = get_logger("onboarding_service")
@@ -25,7 +25,6 @@ class OnboardingService:
 
         redis_key = f"{self.profile_prefix}{request.UserId}:{request.ProductID}"
 
-        # Return cached uuid if session already exists
         if self.redis_client:
             cached_uuid = self.redis_client.get(redis_key)
             if cached_uuid:
@@ -33,14 +32,12 @@ class OnboardingService:
                 self.redis_client.expire(redis_key, self.profile_ttl)
                 return cached_uuid
 
-        # Check Mongo; save if new user
         user_exists = await self.checkIfUserExist(request)
         if user_exists:
             _logger.info(f"User already exists in DB for UserId={request.UserId!r}")
         else:
             await self.saveUserData(request)
 
-        # Generate uuid and cache in Redis
         profile_uuid = str(uuid.uuid4())
         if self.redis_client:
             self.redis_client.setex(redis_key, self.profile_ttl, profile_uuid)

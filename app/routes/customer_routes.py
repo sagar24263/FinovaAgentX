@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.config.onboarding_service import OnboardingService
+from app.services.onboarding_service import OnboardingService
 from app.config.response import create_error_response, create_success_response
 from app.models.customer import CustomerProfileRequest, CustomerProfileResponse
 from app.utils.logger import get_logger
