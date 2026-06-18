@@ -22,7 +22,7 @@ def get_redis_client() -> redis_lib.Redis | None:
     global _redis_client
 
     if _redis_client is None:
-        from app.core.config import get_settings
+        from app.config.settings import get_settings
 
         settings = get_settings(os.getenv("ENV", "dev"))
         endpoint = settings.redis_endpoint

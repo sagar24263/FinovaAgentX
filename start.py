@@ -2,7 +2,7 @@ import sys
 
 import uvicorn
 
-from app.core.config import get_settings
+from app.config.settings import get_settings
 
 
 def main():
