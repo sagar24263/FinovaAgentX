@@ -1,7 +1,6 @@
-import os
-
 import redis as redis_lib
 
+from app.config.env import REDIS_ENDPOINT
 from app.utils.logger import get_logger
 
 logger = get_logger("redis")
@@ -22,17 +21,12 @@ def get_redis_client() -> redis_lib.Redis | None:
     global _redis_client
 
     if _redis_client is None:
-        from app.config.settings import get_settings
-
-        settings = get_settings(os.getenv("ENV", "dev"))
-        endpoint = settings.redis_endpoint
-
-        if not endpoint:
+        if not REDIS_ENDPOINT:
             logger.warning("Redis endpoint not configured")
             return None
 
         try:
-            host, port = _parse_endpoint(endpoint)
+            host, port = _parse_endpoint(REDIS_ENDPOINT)
             _redis_client = redis_lib.Redis(
                 host=host,
                 port=port,

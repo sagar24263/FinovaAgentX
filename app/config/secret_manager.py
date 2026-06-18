@@ -14,12 +14,14 @@ class SecretManager:
     def __init__(self):
         self.region_name = os.getenv("AWS_REGION", "ap-south-1")
         self.secret_name = os.getenv("AWS_SECRET_NAME", "QA_Investment")
+        self.local_aws_token = os.getenv("LOCAL_AWS_TOKEN", "")
+        self.env = os.getenv("ENV", "dev")
         self.client = self._initialize_client()
         self._secret_cache: dict | None = None
 
     def _initialize_client(self):
         try:
-            if os.getenv("ENV") == "dev":
+            if self.env == "dev":
                 credentials = self._get_temporary_credentials()
                 session = boto3.Session(
                     aws_access_key_id=credentials["accessKeyId"],
@@ -46,7 +48,7 @@ class SecretManager:
         try:
             response = make_sync_get_request(
                 url="https://qasavingsapi.policybazaar.com/AwsToken/api/GetToken",
-                headers={"token": os.getenv("LOCAL_AWS_TOKEN", "")},
+                headers={"token": self.local_aws_token},
             )
             if "error" in response:
                 raise Exception(f"API request failed: {response['error']}")

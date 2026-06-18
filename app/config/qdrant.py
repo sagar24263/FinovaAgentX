@@ -1,9 +1,8 @@
 """
 Qdrant client service.
 
-Builds QdrantClient from settings. Nginx Basic auth credentials are fetched
-from AWS Secret Manager (finovaVectorDBPassword). Falls back to QDRANT_API_KEY
-when password is empty but username is set.
+Builds QdrantClient with nginx Basic auth from env.py values
+(fetched via Secret Manager or env fallbacks).
 """
 
 from __future__ import annotations
@@ -15,10 +14,13 @@ from typing import Any, Dict, Optional, Tuple
 
 from qdrant_client import QdrantClient
 
-from app.config.secret_manager import get_secret_manager
+from app.config.env import QDRANT_URL, QDRANT_API_KEY, QDRANT_BASIC_USER, QDRANT_BASIC_PASSWORD
+from app.config.settings import get_settings
 from app.utils.logger import get_logger
 
 logger = get_logger("qdrant")
+
+settings = get_settings()
 
 _lock = Lock()
 _client: Optional[QdrantClient] = None
@@ -28,20 +30,6 @@ QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "30"))
 QDRANT_SEND_API_KEY = os.getenv("QDRANT_SEND_API_KEY", "true").lower() in ("1", "true", "yes")
 
 
-def _get_qdrant_settings():
-    from app.config.settings import get_settings
-    return get_settings(os.getenv("ENV", "dev"))
-
-
-def _get_basic_password() -> str:
-    """Fetch Qdrant basic auth password from secret manager."""
-    try:
-        sm = get_secret_manager()
-        return sm.get_secret_value("finovaVectorDBPassword")
-    except Exception:
-        return ""
-
-
 def _basic_authorization_header(username: str, password: str) -> str:
     token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
     return f"Basic {token}"
@@ -49,7 +37,6 @@ def _basic_authorization_header(username: str, password: str) -> str:
 
 def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, Any]:
     """Build kwargs for QdrantClient."""
-    settings = _get_qdrant_settings()
     url = url.strip().rstrip("/")
 
     kwargs: Dict[str, Any] = {
@@ -62,8 +49,12 @@ def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, A
         kwargs["port"] = settings.qdrant_port
 
     # Basic auth
-    username = settings.qdrant_basic_user
-    password = _get_basic_password()
+    username = QDRANT_BASIC_USER
+    password = QDRANT_BASIC_PASSWORD
+
+    # If username is set but no password, fall back to API key as password
+    if username and not password and api_key:
+        password = api_key
 
     headers: Dict[str, str] = {}
     if username and password:
@@ -72,8 +63,9 @@ def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, A
         kwargs["headers"] = headers
 
     # API key
-    if api_key and QDRANT_SEND_API_KEY:
-        kwargs["api_key"] = api_key
+    key = api_key or QDRANT_API_KEY
+    if key and QDRANT_SEND_API_KEY:
+        kwargs["api_key"] = key
 
     return kwargs
 
@@ -82,8 +74,7 @@ def get_qdrant_client(url: Optional[str] = None, api_key: Optional[str] = None) 
     """Thread-safe cached Qdrant client. Recreated when url/api_key changes."""
     global _client, _client_key
 
-    settings = _get_qdrant_settings()
-    resolved = (url or settings.qdrant_url).strip().rstrip("/")
+    resolved = (url or QDRANT_URL).strip().rstrip("/")
     new_key = (resolved, api_key)
 
     with _lock:

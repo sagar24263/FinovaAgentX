@@ -1,3 +1,5 @@
+import os
+from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
@@ -25,9 +27,6 @@ class Settings(BaseSettings):
     documentdb_host: str = ""
     savings_db_name: str = ""
 
-    # MongoDB (Logs DB)
-    mongodb_host: str = ""
-
     # Redis
     redis_endpoint: str = ""
 
@@ -37,6 +36,9 @@ class Settings(BaseSettings):
     qdrant_basic_user: str = ""
 
 
-def get_settings(env: str = "dev") -> Settings:
+@lru_cache()
+def get_settings() -> Settings:
+    """Load settings once and cache. Reads ENV from environment variable."""
+    env = os.getenv("ENV", "dev")
     env_file = BASE_DIR / f"env.{env}"
     return Settings(_env_file=str(env_file))
