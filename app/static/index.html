@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Support</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+    <div class="chat">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="chat-header-left">
+                <div class="chat-avatar">
+                    <img src="/static/pb_logo.png" alt="">
+                </div>
+                <div class="chat-profile">
+                    <h2>Finova AgentX</h2>
+                    <span id="connection-status">● Connecting...</span>
+                </div>
+            </div>
+            <button class="reset-btn" id="reset-btn">Reset Chat</button>
+        </div>
+
+        <!-- Body -->
+        <div class="chat-body" id="chat-body">
+            <!-- Init loader shown while calling save-customer-profile -->
+            <div class="init-loader" id="init-loader">
+                <div class="init-loader-dot"></div>
+                <div class="init-loader-dot"></div>
+                <div class="init-loader-dot"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="chat-footer">
+            <input type="text" id="chat-input" placeholder="Type your message here..." disabled>
+            <button class="send-btn" id="send-btn" disabled>➤</button>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('connection-status');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatBody = document.getElementById('chat-body');
+        const resetBtn = document.getElementById('reset-btn');
+
+        const params = new URLSearchParams(window.location.search);
+
+        const agentId = params.get("agentId") ?? params.get("agent_id");
+        const productId = params.get("productId") ?? params.get("product_id");
+
+        function setStatus(text, color, active = false) {
+            statusEl.textContent = text;
+            statusEl.style.color = color;
+            statusEl.classList.toggle('active', active);
+        }
+
+        function disableChat() {
+            chatInput.disabled = true;
+            sendBtn.disabled = true;
+            resetBtn.disabled = true;
+        }
+
+        function enableChat() {
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            resetBtn.disabled = false;
+            chatInput.focus();
+        }
+
+        function showLoader() {
+            const loader = document.createElement('div');
+            loader.className = 'init-loader';
+            loader.id = 'init-loader';
+            loader.innerHTML = `
+                <div class="init-loader-dot"></div>
+                <div class="init-loader-dot"></div>
+                <div class="init-loader-dot"></div>`;
+            chatBody.appendChild(loader);
+            chatBody.scrollTop = chatBody.scrollHeight;
+            return loader;
+        }
+
+        function appendMessage(text, role) {
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const msg = document.createElement('div');
+            msg.className = `message ${role}`;
+            msg.innerHTML = `
+                <div class="bubble">
+                    ${text}
+                    <div class="time">${now}</div>
+                </div>`;
+            chatBody.appendChild(msg);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        async function initSession() {
+            disableChat();
+            chatBody.innerHTML = '';
+            const loader = showLoader();
+
+            if (!agentId || !productId) {
+                loader.remove();
+                setStatus('● Missing params', '#ff4d4d');
+                appendMessage('Error: <b>agentId</b> and <b>productId</b> are required in the URL.<br>e.g. <code>/chat?agentId=124&productId=115</code>', 'agent');
+                return;
+            }
+
+            setStatus('● Connecting...', 'rgba(255,255,255,.85)');
+
+            try {
+                const res = await fetch('/api/save-customer-profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        UserId: agentId,
+                        UserType: 'Agent',
+                        UserSource: 'Finova AgentX',
+                        ProductID: parseInt(productId, 10)
+                    })
+                });
+
+                const data = await res.json();
+                loader.remove();
+
+                if (data.isSuccess) {
+                    setStatus('● Active now', '#4cff91', true);
+                    appendMessage('Hello! How can I help you today?', 'agent');
+                    enableChat();
+                } else {
+                    const errors = (data.errors || ['Unknown error']).join(', ');
+                    setStatus('● Failed', '#ff4d4d');
+                    appendMessage(`Failed to connect: ${errors}`, 'agent');
+                }
+            } catch (err) {
+                loader.remove();
+                setStatus('● Offline', '#ff4d4d');
+                appendMessage('Unable to reach the server. Please try again later.', 'agent');
+            }
+        }
+
+        async function resetChat() {
+            disableChat();
+            setStatus('● Resetting...', 'rgba(255,255,255,.85)');
+
+            try {
+                await fetch('/api/reset-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        UserId: agentId,
+                        ProductID: parseInt(productId, 10)
+                    })
+                });
+            } catch (_) { }
+
+            chatBody.innerHTML = '';
+
+            // Countdown message bubble with live update
+            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const countdownMsg = document.createElement('div');
+            countdownMsg.className = 'message agent reconnecting';
+            countdownMsg.innerHTML = `<div class="bubble reconnect-bubble"><span class="reconnect-text">Reconnecting in 2s...</span><div class="time">${now}</div></div>`;
+            chatBody.appendChild(countdownMsg);
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+            const reconnectText = countdownMsg.querySelector('.reconnect-text');
+            setStatus('● Reconnecting in 2s...', '#ffcc00');
+
+            let count = 2;
+            await new Promise(resolve => {
+                const interval = setInterval(() => {
+                    count--;
+                    if (count <= 0) {
+                        clearInterval(interval);
+                        reconnectText.textContent = 'Reconnecting now...';
+                        setStatus('● Reconnecting...', '#ffcc00');
+                        resolve();
+                    } else {
+                        reconnectText.textContent = `Reconnecting in ${count}s...`;
+                        setStatus(`● Reconnecting in ${count}s...`, '#ffcc00');
+                    }
+                }, 1000);
+            });
+
+            await initSession();
+        }
+
+        resetBtn.addEventListener('click', resetChat);
+
+        initSession();
+    </script>
+</body>
+
+</html>
