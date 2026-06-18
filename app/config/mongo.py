@@ -2,7 +2,7 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 from app.utils.logger import get_logger
-from app.core.secret_manager import get_secret_manager
+from app.config.secret_manager import get_secret_manager
 
 logger = get_logger("mongo")
 
@@ -15,8 +15,8 @@ def _get_mongodb_uri() -> str:
     sm = get_secret_manager()
     username = sm.get_secret_value("mongoDBUserName")
     password = sm.get_secret_value("mongoDBPassword")
-    from app.core.config import get_settings
     import os
+    from app.config.settings import get_settings
     settings = get_settings(os.getenv("ENV", "dev"))
     return f"mongodb://{username}:{password}@{settings.mongodb_host}/investmentLogs?authSource=admin"
 
@@ -26,8 +26,8 @@ def _get_savings_db_uri() -> str:
     sm = get_secret_manager()
     username = sm.get_secret_value("documentDBUserName")
     password = sm.get_secret_value("documentDBPassword")
-    from app.core.config import get_settings
     import os
+    from app.config.settings import get_settings
     settings = get_settings(os.getenv("ENV", "dev"))
     return f"mongodb://{username}:{password}@{settings.documentdb_host}/{settings.savings_db_name}?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false"
 
@@ -99,7 +99,7 @@ def get_savings_db_client():
         try:
             _savings_client = MongoClient(
                 _get_savings_db_uri(),
-                retryWrites=False,  # DocumentDB doesn't support retryWrites
+                retryWrites=False,
                 **_mongo_client_options(),
             )
             _savings_client.admin.command("ping")
@@ -118,7 +118,7 @@ def get_savings_database(name: str | None = None):
     if client is None:
         return None
     import os
-    from app.core.config import get_settings
+    from app.config.settings import get_settings
     settings = get_settings(os.getenv("ENV", "dev"))
     db_name = name or settings.savings_db_name
     return client[db_name]

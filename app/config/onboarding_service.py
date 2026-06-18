@@ -1,7 +1,7 @@
 import uuid
 from app.models.customer import CustomerProfileRequest
-from app.services.mongo import get_collection
-from app.services.redis import get_redis_client
+from app.config.mongo import get_collection
+from app.config.redis import get_redis_client
 from app.utils.logger import get_logger
 
 _logger = get_logger("onboarding_service")

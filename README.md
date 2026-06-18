@@ -6,16 +6,23 @@ A basic FastAPI project with a clean folder structure.
 
 ```
 ├── app/
-│   ├── api/
-│   │   ├── endpoints/   # Route handlers
-│   │   │   └── items.py
-│   │   └── router.py    # Central API router
-│   ├── core/
-│   │   └── config.py    # App settings via pydantic-settings
+│   ├── config/
+│   │   ├── settings.py        # App settings via pydantic-settings
+│   │   ├── secret_manager.py  # AWS Secret Manager
+│   │   ├── mongo.py           # MongoDB & DocumentDB connections
+│   │   ├── redis.py           # Redis connection
+│   │   └── qdrant.py          # Qdrant vector DB connection
 │   ├── models/
-│   │   └── item.py      # Pydantic schemas
-│   └── main.py          # FastAPI app entrypoint
-├── .env
+│   │   └── item.py            # Pydantic schemas
+│   ├── utils/
+│   │   ├── api_client.py      # Sync HTTP helper
+│   │   └── logger.py          # Logging utility
+│   ├── main.py                # FastAPI app entrypoint
+│   └── routes.py              # All route handlers
+├── env.dev
+├── env.qa
+├── env.production
+├── start.py
 ├── .gitignore
 ├── requirements.txt
 └── README.md

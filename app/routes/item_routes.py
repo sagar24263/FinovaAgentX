@@ -4,7 +4,6 @@ from app.models.item import Item, ItemCreate
 
 router = APIRouter()
 
-# In-memory store for demo purposes
 _items: dict[int, Item] = {}
 _next_id: int = 1
 

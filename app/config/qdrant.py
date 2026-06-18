@@ -12,11 +12,10 @@ import base64
 import os
 from threading import Lock
 from typing import Any, Dict, Optional, Tuple
-from urllib.parse import urlparse, urlunparse
 
 from qdrant_client import QdrantClient
 
-from app.core.secret_manager import get_secret_manager
+from app.config.secret_manager import get_secret_manager
 from app.utils.logger import get_logger
 
 logger = get_logger("qdrant")
@@ -30,7 +29,7 @@ QDRANT_SEND_API_KEY = os.getenv("QDRANT_SEND_API_KEY", "true").lower() in ("1", 
 
 
 def _get_qdrant_settings():
-    from app.core.config import get_settings
+    from app.config.settings import get_settings
     return get_settings(os.getenv("ENV", "dev"))
 
 
@@ -72,7 +71,7 @@ def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, A
     if headers:
         kwargs["headers"] = headers
 
-    # API key (sent separately to Qdrant if configured)
+    # API key
     if api_key and QDRANT_SEND_API_KEY:
         kwargs["api_key"] = api_key
 
