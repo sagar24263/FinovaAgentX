@@ -13,7 +13,7 @@ class OnboardingService:
     def __init__(self):
         self.redis_client = get_redis_client()
         self.profile_ttl = 7200  # 2 hours
-        self.profile_prefix = "agentX:profile:"
+        self.profile_prefix = "finovaAgentX:profile:"
 
         if self.redis_client:
             _logger.info("OnboardingService initialized with Redis")
