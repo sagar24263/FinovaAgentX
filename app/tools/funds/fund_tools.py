@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.services.fund_service import (
     compare_funds,
     get_fund_asset_class_breakup,
-    get_fund_details,
+    get_fund_detailsetails,
     get_fund_holding_sector_breakup,
     get_insurer_top_funds,
     get_plan_fund_performance,
