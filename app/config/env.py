@@ -133,12 +133,13 @@ GEMINI_PRIVATE_KEY = get_config_value("gemini_private_key")
 # ---------------------------------------------------------------------------
 # API URLs
 # ---------------------------------------------------------------------------
-INVESTMENT_API_BASE_URL = os.getenv("INVESTMENT_API_BASE_URL")
-FUND_API_URL = os.getenv("FUND_API_URL")
-ALL_FUNDS_API_URL = os.getenv("ALL_FUNDS_API_URL")
-TERM_API_BASE_URL = os.getenv("TERM_API_BASE_URL")
-PENSION_API_BASE_URL = os.getenv("PENSION_API_BASE_URL")
-NFO_TIMELINE_API_URL = os.getenv("NFO_TIMELINE_API_URL")
+INVESTMENT_API_BASE_URL = os.getenv("INVESTMENT_API_BASE_URL", "")
+FUND_API_BASE_URL = os.getenv("FUND_API_BASE_URL", "")
+FUND_API_URL = f"{FUND_API_BASE_URL}/Fund/GetPlanFundPerformanceData"
+ALL_FUNDS_API_URL = f"{FUND_API_BASE_URL}/Fund/GetAllFundsAndPlans"
+TERM_API_BASE_URL = os.getenv("TERM_API_BASE_URL", "")
+PENSION_API_BASE_URL = os.getenv("PENSION_API_BASE_URL", "")
+NFO_TIMELINE_API_URL = os.getenv("NFO_TIMELINE_API_URL", "")
 NFO_TIMELINE_TIMEOUT = float(os.getenv("NFO_TIMELINE_TIMEOUT", "30"))
 
 # ---------------------------------------------------------------------------
