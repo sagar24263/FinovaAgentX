@@ -36,12 +36,22 @@ tools = [
 
 
 def _build_react_agent():
+    from datetime import datetime, timezone
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now = datetime.now(timezone.utc)
+
+    current_datetime = now.strftime("%d %B %Y, %H:%M IST")
+    prompt_with_date = f"{GENERIC_AGENT_SYSTEM_PROMPT}\n\nCurrent date and time: {current_datetime}."
+
     llm = get_llm_service().get_llm(
         model="gemini-3.1-flash-lite",
         temperature=0.35,
         max_tokens=4000,
     )
-    return create_react_agent(llm, tools, prompt=GENERIC_AGENT_SYSTEM_PROMPT)
+    return create_react_agent(llm, tools, prompt=prompt_with_date)
 
 
 async def run_generic_agent(state: AgentState) -> AgentState:

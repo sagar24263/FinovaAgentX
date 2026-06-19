@@ -42,12 +42,22 @@ tools = [
 
 def _build_react_agent():
     """Build a react agent that handles tool calling automatically."""
+    from datetime import datetime, timezone
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now = datetime.now(timezone.utc)
+
+    current_datetime = now.strftime("%d %B %Y, %H:%M IST")
+    prompt_with_date = f"{NFO_FUNDS_AGENT_SYSTEM_PROMPT}\n\nCurrent date and time: {current_datetime}. Use this for any relative date queries (e.g. 'recent', 'this month', 'last 3 months')."
+
     llm = get_llm_service().get_llm(
         model="gemini-3.1-flash-lite",
         temperature=0.3,
         max_tokens=4000,
     )
-    return create_react_agent(llm, tools, prompt=NFO_FUNDS_AGENT_SYSTEM_PROMPT)
+    return create_react_agent(llm, tools, prompt=prompt_with_date)
 
 
 async def run_nfo_funds_agent(state: AgentState) -> AgentState:
