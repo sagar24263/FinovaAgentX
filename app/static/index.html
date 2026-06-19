@@ -55,6 +55,7 @@
 
         const agentId = params.get("agentId") ?? params.get("agent_id");
         const productId = params.get("productId") ?? params.get("product_id");
+        let uniqueId = null;
 
         function setStatus(text, color, active = false) {
             statusEl.textContent = text;
@@ -131,6 +132,7 @@
                 loader.remove();
 
                 if (data.isSuccess) {
+                    uniqueId = data.unique_id;
                     setStatus('● Active now', '#4cff91', true);
                     appendMessage('Hello! How can I help you today?', 'agent');
                     enableChat();
@@ -192,6 +194,58 @@
 
             await initSession();
         }
+
+        function showTypingLoader() {
+            const loader = document.createElement('div');
+            loader.className = 'message agent';
+            loader.id = 'typing-loader';
+            loader.innerHTML = `
+                <div class="bubble typing-bubble">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>`;
+            chatBody.appendChild(loader);
+            chatBody.scrollTop = chatBody.scrollHeight;
+            return loader;
+        }
+
+        async function sendMessage() {
+            const query = chatInput.value.trim();
+            if (!query || !uniqueId) return;
+
+            chatInput.value = '';
+            disableChat();
+            appendMessage(query, 'user');
+
+            const loader = showTypingLoader();
+
+            try {
+                const res = await fetch('/api/get-faq-response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, uniqueId })
+                });
+
+                const data = await res.json();
+                loader.remove();
+
+                if (data.isSuccess) {
+                    appendMessage(data.answer, 'agent');
+                } else {
+                    const errors = (data.errors || ['Unknown error']).join(', ');
+                    appendMessage(`Sorry, something went wrong: ${errors}`, 'agent');
+                }
+            } catch (err) {
+                loader.remove();
+                appendMessage('Unable to reach the server. Please try again.', 'agent');
+            }
+
+            enableChat();
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
 
         resetBtn.addEventListener('click', resetChat);
 
