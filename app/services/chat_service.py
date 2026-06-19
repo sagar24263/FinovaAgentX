@@ -2,13 +2,16 @@
 Chat Service — orchestrates session management + LangGraph agent execution.
 """
 
+from datetime import datetime
 from typing import Dict, List
 
 from app.agents.graph import agent_graph
+from app.config.mongo import get_collection
 from app.services.session_service import session_service
 from app.utils.logger import get_logger
 
 logger = get_logger("chat_service")
+USER_MESSAGES_COLLECTION = "userMessages"
 
 
 class ChatService:
@@ -34,7 +37,10 @@ class ChatService:
         # 3. Get chat history
         chat_history = self._get_chat_history(unique_id)
 
-        # 4. Run LangGraph
+        # 4. Save user message to MongoDB before processing
+        self._save_message(unique_id=unique_id, role="user", content=query, intent="")
+
+        # 5. Run LangGraph
         initial_state = {
             "query": query,
             "chat_history": chat_history,
@@ -51,7 +57,7 @@ class ChatService:
 
         response = result.get("response", "Sorry, I couldn't process your request.")
 
-        # 5. Add assistant response to session
+        # 6. Add assistant response to session
         session_service.add_message(unique_id, role="assistant", content=response)
 
         logger.info(
@@ -61,7 +67,48 @@ class ChatService:
             f"agents_tried={result.get('attempted_agents')}"
         )
 
+        # 7. Save bot response to MongoDB after processing
+        self._save_message(
+            unique_id=unique_id,
+            role="bot",
+            content=response,
+            intent=result.get("intent", ""),
+            can_answer=result.get("can_answer", False),
+            attempted_agents=result.get("attempted_agents", []),
+        )
+
         return response
+
+    def _save_message(
+        self,
+        unique_id: str,
+        role: str,
+        content: str,
+        intent: str = "",
+        can_answer: bool = False,
+        attempted_agents: List[str] = [],
+    ) -> None:
+        collection = get_collection(collection_name=USER_MESSAGES_COLLECTION)
+        if collection is None:
+            logger.warning("MongoDB unavailable — skipping message persistence")
+            return
+
+        doc = {
+            "unique_id": unique_id,
+            "role": role,
+            "content": content,
+            "timestamp": datetime.utcnow(),
+            "intent": intent,
+        }
+        if role == "bot":
+            doc["can_answer"] = can_answer
+            doc["attempted_agents"] = attempted_agents
+
+        try:
+            collection.insert_one(doc)
+            logger.info(f"Message saved to MongoDB role={role} uniqueId={unique_id}")
+        except Exception as e:
+            logger.error(f"Failed to save message to MongoDB: {e}")
 
     def _get_chat_history(self, unique_id: str) -> List[Dict[str, str]]:
         """Get chat history from Redis session (excluding the just-added user message)."""

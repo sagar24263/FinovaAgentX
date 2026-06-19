@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body>
@@ -89,14 +90,25 @@
             return loader;
         }
 
-        function appendMessage(text, role) {
-            const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        function formatIST(timestamp) {
+            const date = timestamp ? new Date(timestamp) : new Date();
+            return date.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+            });
+        }
+
+        function appendMessage(text, role, timestamp) {
+            const time = formatIST(timestamp);
+            const content = role === 'agent' ? marked.parse(text) : text;
             const msg = document.createElement('div');
             msg.className = `message ${role}`;
             msg.innerHTML = `
                 <div class="bubble">
-                    ${text}
-                    <div class="time">${now}</div>
+                    ${content}
+                    <div class="time">${time}</div>
                 </div>`;
             chatBody.appendChild(msg);
             chatBody.scrollTop = chatBody.scrollHeight;
@@ -134,7 +146,17 @@
                 if (data.isSuccess) {
                     uniqueId = data.unique_id;
                     setStatus('● Active now', '#4cff91', true);
-                    appendMessage('Hello! How can I help you today?', 'agent');
+
+                    const messages = data.messages || [];
+                    if (messages.length > 0) {
+                        messages.forEach(m => {
+                            const role = m.role === 'bot' ? 'agent' : 'user';
+                            appendMessage(m.content, role, m.timestamp);
+                        });
+                    } else {
+                        appendMessage('Hello! How can I help you today?', 'agent');
+                    }
+
                     enableChat();
                 } else {
                     const errors = (data.errors || ['Unknown error']).join(', ');

@@ -39,7 +39,14 @@ class CustomerProfileRequest(BaseModel):
         return v
 
 
+class MessageRecord(BaseModel):
+    role: str
+    content: str
+    timestamp: str
+
+
 class CustomerProfileResponse(BaseModel):
     unique_id: str
     isSuccess: bool
     errors: list[str] | None = None
+    messages: list[MessageRecord] | None = None

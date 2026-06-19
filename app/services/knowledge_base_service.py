@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 from qdrant_client.http.models import (
@@ -68,10 +69,10 @@ class KnowledgeBaseService:
         if self.collection is None:
             logger.warning(f"MongoDB unavailable for kb_type='{self.kb_type}'")
             return []
-        query = {}
+        query: Dict = {}
         if active_only:
             query["is_active"] = True
-        return list[dict](self.collection.find(query, {"_id": 0}))
+        return list(self.collection.find(query, {"_id": 0}))
 
 
 def get_knowledge_base_service(kb_type: str) -> KnowledgeBaseService:
@@ -161,9 +162,10 @@ def _index_single(
     model: SentenceTransformer,
     qdrant_url: Optional[str] = None,
     qdrant_api_key: Optional[str] = None,
-) -> str:
+) -> Dict:
     from app.config.env import QDRANT_URL, QDRANT_API_KEY
 
+    t_start = time.perf_counter()
     qdrant_col = KB_TYPE_CONFIG[kb_type]["qdrant_collection"]
 
     url = qdrant_url or QDRANT_URL
@@ -219,19 +221,27 @@ def _index_single(
     logger.info(f"Collection '{qdrant_col}' has {count} points after indexing")
 
     test_vec = model.encode("what is").tolist()
-    test_hits = client.query_points(
+    test_hits = client.search(
         collection_name=qdrant_col,
-        query=test_vec,
+        query_vector=test_vec,
         limit=1,
         with_payload=True,
-    ).points
+    )
     if test_hits and test_hits[0].payload:
         sample = (test_hits[0].payload.get("document") or "")[:100]
         logger.info(f"Test query OK — sample: {sample}...")
     else:
         logger.warning("Test query returned no results")
 
-    return qdrant_col
+    elapsed = round(time.perf_counter() - t_start, 2)
+    logger.info(f"Indexed '{kb_type}' in {elapsed}s")
+    return {
+        "type": kb_type,
+        "mongo_collection": KB_TYPE_CONFIG[kb_type]["mongo_collection"],
+        "qdrant_collection": qdrant_col,
+        "docs_indexed": count,
+        "time_taken_seconds": elapsed,
+    }
 
 
 def index_knowledge_base(
@@ -244,16 +254,22 @@ def index_knowledge_base(
     kb_type: 'generic' | 'NFO' | None  (None reindexes both)
     Returns {'indexed': [...], 'errors': [...]}
     """
+    t_total_start = time.perf_counter()
     model = get_embedding_model()
     types_to_index = [kb_type] if kb_type else list(KB_TYPE_CONFIG.keys())
 
-    indexed, errors = [], []
+    collections, errors = [], []
     for t in types_to_index:
         try:
-            col = _index_single(t, model, qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key)
-            indexed.append(col)
+            stats = _index_single(t, model, qdrant_url=qdrant_url, qdrant_api_key=qdrant_api_key)
+            collections.append(stats)
         except Exception as e:
             logger.error(f"Failed to index '{t}': {e}")
             errors.append(f"{t}: {str(e)}")
 
-    return {"indexed": indexed, "errors": errors}
+    return {
+        "collections": collections,
+        "total_docs_indexed": sum(c["docs_indexed"] for c in collections),
+        "total_time_seconds": round(time.perf_counter() - t_total_start, 2),
+        "errors": errors,
+    }
