@@ -480,3 +480,146 @@ body {
         transform: translateY(0);
     }
 }
+
+/* ── Markdown styles inside bot bubble ─────────────────────────────────── */
+
+.agent .bubble h1,
+.agent .bubble h2,
+.agent .bubble h3,
+.agent .bubble h4,
+.agent .bubble h5,
+.agent .bubble h6 {
+    color: #ffffff;
+    font-weight: 700;
+    margin: 14px 0 6px;
+    line-height: 1.4;
+}
+
+.agent .bubble h1 { font-size: 20px; border-bottom: 1px solid rgba(255,255,255,.15); padding-bottom: 6px; }
+.agent .bubble h2 { font-size: 17px; }
+.agent .bubble h3 { font-size: 15px; }
+
+.agent .bubble p {
+    margin: 0 0 10px;
+    line-height: 1.8;
+}
+
+.agent .bubble p:last-child {
+    margin-bottom: 0;
+}
+
+.agent .bubble strong,
+.agent .bubble b {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.agent .bubble em,
+.agent .bubble i {
+    font-style: italic;
+    color: rgba(255,255,255,.85);
+}
+
+.agent .bubble ul,
+.agent .bubble ol {
+    margin: 8px 0 10px 20px;
+    padding: 0;
+}
+
+.agent .bubble ul {
+    list-style: disc;
+}
+
+.agent .bubble ol {
+    list-style: decimal;
+}
+
+.agent .bubble li {
+    margin-bottom: 6px;
+    line-height: 1.7;
+    color: rgba(255,255,255,.92);
+}
+
+.agent .bubble li::marker {
+    color: #4b96ff;
+}
+
+.agent .bubble code {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    background: rgba(0, 176, 255, .12);
+    color: #7dd3fc;
+    padding: 2px 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 176, 255, .2);
+}
+
+.agent .bubble pre {
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 12px 0;
+    overflow-x: auto;
+}
+
+.agent .bubble pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #e2e8f0;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.agent .bubble blockquote {
+    border-left: 3px solid #4b96ff;
+    margin: 10px 0;
+    padding: 8px 16px;
+    background: rgba(75, 150, 255, .08);
+    border-radius: 0 8px 8px 0;
+    color: rgba(255,255,255,.8);
+    font-style: italic;
+}
+
+.agent .bubble a {
+    color: #60aaff;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.agent .bubble a:hover {
+    color: #90c4ff;
+}
+
+.agent .bubble hr {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,.15);
+    margin: 14px 0;
+}
+
+.agent .bubble table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+}
+
+.agent .bubble th {
+    background: rgba(75, 150, 255, .2);
+    color: #ffffff;
+    font-weight: 600;
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,.1);
+    text-align: left;
+}
+
+.agent .bubble td {
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    color: rgba(255,255,255,.85);
+}
+
+.agent .bubble tr:nth-child(even) td {
+    background: rgba(255,255,255,.04);
+}

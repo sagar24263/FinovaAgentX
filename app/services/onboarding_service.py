@@ -1,7 +1,8 @@
 import uuid
+from typing import List
 from app.config.mongo import get_collection
 from app.config.redis import get_redis_client
-from app.models.customer import CustomerProfileRequest
+from app.models.customer import CustomerProfileRequest, MessageRecord
 from app.utils.logger import get_logger
 
 _logger = get_logger("onboarding_service")
@@ -20,7 +21,7 @@ class OnboardingService:
         else:
             _logger.warning("Redis not available - session caching disabled")
 
-    async def onboard_customer(self, request: CustomerProfileRequest) -> str:
+    async def onboard_customer(self, request: CustomerProfileRequest) -> tuple[str, List[MessageRecord]]:
         _logger.info(f"Onboarding customer UserId={request.UserId!r}, UserType={request.UserType!r}, ProductID={request.ProductID}")
 
         redis_key = f"{self.profile_prefix}{request.UserId}:{request.ProductID}"
@@ -30,7 +31,8 @@ class OnboardingService:
             if cached_uuid:
                 _logger.info(f"Session exists for UserId={request.UserId!r}, ProductID={request.ProductID} — refreshing TTL")
                 self.redis_client.expire(redis_key, self.profile_ttl)
-                return cached_uuid
+                messages = self.getMessagesByUniqueId(cached_uuid)
+                return cached_uuid, messages
 
         user_exists = await self.checkIfUserExist(request)
         if user_exists:
@@ -43,7 +45,8 @@ class OnboardingService:
             self.redis_client.setex(redis_key, self.profile_ttl, profile_uuid)
             _logger.info(f"Session cached in Redis for UserId={request.UserId!r}")
 
-        return profile_uuid
+        messages = self.getMessagesByUniqueId(profile_uuid)
+        return profile_uuid, messages
 
     async def checkIfUserExist(self, request: CustomerProfileRequest) -> bool:
         collection = get_collection(collection_name=USERS_COLLECTION)
@@ -56,6 +59,25 @@ class OnboardingService:
             {"_id": 1},
         )
         return user is not None
+
+    def getMessagesByUniqueId(self, unique_id: str) -> List[MessageRecord]:
+        collection = get_collection(collection_name="userMessages")
+        if collection is None:
+            _logger.warning("MongoDB unavailable — cannot fetch messages")
+            return []
+        docs = list(collection.find(
+            {"unique_id": unique_id},
+            {"_id": 0},
+            sort=[("timestamp", 1)],
+        ))
+        messages = []
+        for doc in docs:
+            messages.append(MessageRecord(
+                role=doc.get("role", ""),
+                content=doc.get("content", ""),
+                timestamp=doc.get("timestamp").isoformat() if doc.get("timestamp") else "",
+            ))
+        return messages
 
     async def saveUserData(self, request: CustomerProfileRequest) -> None:
         collection = get_collection(collection_name=USERS_COLLECTION)

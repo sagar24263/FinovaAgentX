@@ -23,8 +23,8 @@ async def save_customer_profile(request: CustomerProfileRequest):
     logger.info(f"Saving customer profile ProductID={request.ProductID}, UserId={request.UserId!r}")
 
     try:
-        unique_id = await onboarding_service.onboard_customer(request)
-        return create_success_response(unique_id)
+        unique_id, messages = await onboarding_service.onboard_customer(request)
+        return create_success_response(unique_id, messages)
     except Exception as e:
         logger.error(f"Customer onboarding failed: {e}")
         return create_error_response([str(e)])
