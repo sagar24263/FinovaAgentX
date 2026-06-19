@@ -85,8 +85,9 @@ class GetNfoListingReturnsTool(BaseTool):
 class GetClosedFundsTool(BaseTool):
     name: str = "get_closed_funds"
     description: str = (
-        "Check which NFO funds are closed for subscription. "
-        "Use for 'is X fund still open?', 'which funds are closed?'."
+        "Check which funds are CLOSED for subscription (no longer accepting investments). "
+        "These are funds that were previously open (some launched as NFOs) but are now closed. "
+        "Use for 'is X fund still open?', 'which funds are closed?', 'closed funds'."
     )
     args_schema: Type[BaseModel] = GetClosedFundsInput
 
