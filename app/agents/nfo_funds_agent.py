@@ -8,23 +8,56 @@ from langgraph.prebuilt import create_react_agent
 from app.agents.state import AgentState
 from app.prompts.nfo_funds_prompt import NFO_FUNDS_AGENT_SYSTEM_PROMPT
 from app.services.llm_service import get_llm_service
-from app.tools.nfo_tools import GetActiveNfosTool
+from app.tools.nfo import GetActiveNfosTool, GetNfoTimelineTool, GetNfoListingReturnsTool, GetClosedFundsTool
+from app.tools.funds import (
+    GetFundDetailsTool,
+    GetPlanFundPerformanceTool,
+    GetFundAssetClassBreakupTool,
+    GetFundHoldingSectorBreakupTool,
+    GetInsurerTopFundsTool,
+    GetPlanFundsSplitByTypeTool,
+    CompareFundsTool,
+)
+from app.tools.insurer import GetInsurerInfoTool
 from app.utils.logger import get_logger
 
 logger = get_logger("nfo_funds_agent")
 
 # Tools available to this agent
-tools = [GetActiveNfosTool()]
+tools = [
+    GetActiveNfosTool(),
+    GetNfoTimelineTool(),
+    GetNfoListingReturnsTool(),
+    GetClosedFundsTool(),
+    GetFundDetailsTool(),
+    GetPlanFundPerformanceTool(),
+    GetFundAssetClassBreakupTool(),
+    GetFundHoldingSectorBreakupTool(),
+    GetInsurerInfoTool(),
+    GetInsurerTopFundsTool(),
+    GetPlanFundsSplitByTypeTool(),
+    CompareFundsTool(),
+]
 
 
 def _build_react_agent():
     """Build a react agent that handles tool calling automatically."""
+    from datetime import datetime, timezone
+    try:
+        from zoneinfo import ZoneInfo
+        now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    except Exception:
+        now = datetime.now(timezone.utc)
+
+    current_datetime = now.strftime("%d %B %Y, %H:%M IST")
+    prompt_with_date = f"{NFO_FUNDS_AGENT_SYSTEM_PROMPT}\n\nCurrent date and time: {current_datetime}. Use this for any relative date queries (e.g. 'recent', 'this month', 'last 3 months')."
+
     llm = get_llm_service().get_llm(
         model="gemini-3.1-flash-lite",
         temperature=0.3,
         max_tokens=4000,
     )
-    return create_react_agent(llm, tools, prompt=NFO_FUNDS_AGENT_SYSTEM_PROMPT)
+    return create_react_agent(llm, tools, prompt=prompt_with_date)
 
 
 async def run_nfo_funds_agent(state: AgentState) -> AgentState:

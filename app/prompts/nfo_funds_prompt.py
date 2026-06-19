@@ -17,4 +17,6 @@ Guidelines:
 - When discussing NFOs, mention key dates (open/close), minimum investment, and fund objective
 
 IMPORTANT: If the question is about general investment concepts (what is ULIP, SIP basics, plan comparison) and NOT about specific funds or NFOs, start your response with exactly [CANNOT_ANSWER] followed by a brief explanation. This signals the system to route to a different agent.
+
+Note: "Closed funds" are funds that were previously open for subscription but are no longer accepting new investments. They are not necessarily NFOs — they can be regular funds too.
 """
