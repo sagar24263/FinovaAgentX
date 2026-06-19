@@ -273,3 +273,49 @@ def index_knowledge_base(
         "total_time_seconds": round(time.perf_counter() - t_total_start, 2),
         "errors": errors,
     }
+
+
+# ---------------------------------------------------------------------------
+# RAG search
+# ---------------------------------------------------------------------------
+
+def rag_search(query: str, kb_type: str, top_k: int = 2) -> str:
+    """
+    Embed query, search Qdrant, return top-k document chunks as a single
+    formatted context string ready to inject into a prompt.
+    Returns empty string if collection is missing or search fails.
+    """
+    try:
+        model = get_embedding_model()
+        client = get_qdrant_client()
+        qdrant_col = KB_TYPE_CONFIG[kb_type]["qdrant_collection"]
+
+        existing = {c.name for c in client.get_collections().collections}
+        if qdrant_col not in existing:
+            logger.warning(f"Qdrant collection '{qdrant_col}' not found — skipping RAG")
+            return ""
+
+        query_vector = model.encode(query).tolist()
+        hits = client.search(
+            collection_name=qdrant_col,
+            query_vector=query_vector,
+            limit=top_k,
+            with_payload=True,
+        )
+
+        if not hits:
+            return ""
+
+        chunks = []
+        for i, hit in enumerate(hits, 1):
+            doc = (hit.payload or {}).get("document", "")
+            if doc:
+                chunks.append(f"[{i}] {doc}")
+
+        context = "\n\n".join(chunks)
+        logger.info(f"RAG retrieved {len(chunks)} chunks for kb_type='{kb_type}'")
+        return context
+
+    except Exception as e:
+        logger.error(f"RAG search failed for kb_type='{kb_type}': {e}")
+        return ""

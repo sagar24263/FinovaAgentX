@@ -30,12 +30,19 @@
 
         <!-- Body -->
         <div class="chat-body" id="chat-body">
-            <!-- Init loader shown while calling save-customer-profile -->
             <div class="init-loader" id="init-loader">
                 <div class="init-loader-dot"></div>
                 <div class="init-loader-dot"></div>
                 <div class="init-loader-dot"></div>
             </div>
+        </div>
+
+        <!-- Scroll-up typing indicator (shown when user scrolls up while bot is thinking) -->
+        <div class="scroll-typing-indicator" id="scroll-typing-indicator">
+            <div class="scroll-typing-dot"></div>
+            <div class="scroll-typing-dot"></div>
+            <div class="scroll-typing-dot"></div>
+            <span>Finova AgentX is typing...</span>
         </div>
 
         <!-- Footer -->
@@ -51,12 +58,38 @@
         const sendBtn = document.getElementById('send-btn');
         const chatBody = document.getElementById('chat-body');
         const resetBtn = document.getElementById('reset-btn');
+        const scrollTypingIndicator = document.getElementById('scroll-typing-indicator');
 
         const params = new URLSearchParams(window.location.search);
-
         const agentId = params.get("agentId") ?? params.get("agent_id");
         const productId = params.get("productId") ?? params.get("product_id");
         let uniqueId = null;
+        let isBotTyping = false;
+        let userHasScrolledUp = false;
+
+        // ── Scroll tracking ──────────────────────────────────────────────────
+        chatBody.addEventListener('scroll', () => {
+            const distFromBottom = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight;
+            userHasScrolledUp = distFromBottom > 80;
+
+            // Show/hide the sticky typing indicator when scrolled up and bot is typing
+            if (isBotTyping && userHasScrolledUp) {
+                scrollTypingIndicator.classList.add('visible');
+            } else {
+                scrollTypingIndicator.classList.remove('visible');
+            }
+        });
+
+        // Clicking the indicator scrolls back down to the typing loader
+        scrollTypingIndicator.addEventListener('click', () => {
+            const typingLoader = document.getElementById('typing-loader');
+            if (typingLoader) {
+                typingLoader.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                chatBody.scrollTo({ top: chatBody.scrollHeight, behavior: 'smooth' });
+            }
+            scrollTypingIndicator.classList.remove('visible');
+        });
 
         function setStatus(text, color, active = false) {
             statusEl.textContent = text;
@@ -100,7 +133,7 @@
             });
         }
 
-        function appendMessage(text, role, timestamp) {
+        function appendMessage(text, role, timestamp, silent = false) {
             const time = formatIST(timestamp);
             const content = role === 'agent' ? marked.parse(text) : text;
             const msg = document.createElement('div');
@@ -111,7 +144,18 @@
                     <div class="time">${time}</div>
                 </div>`;
             chatBody.appendChild(msg);
-            chatBody.scrollTop = chatBody.scrollHeight;
+
+            if (silent) return;
+
+            if (role === 'agent') {
+                // Wait two frames: first for DOM paint, second for layout to settle
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    const PADDING = 16;
+                    chatBody.scrollTo({ top: msg.offsetTop - PADDING, behavior: 'smooth' });
+                }));
+            } else {
+                chatBody.scrollTop = chatBody.scrollHeight;
+            }
         }
 
         async function initSession() {
@@ -149,10 +193,12 @@
 
                     const messages = data.messages || [];
                     if (messages.length > 0) {
+                        // Render all history silently, then snap to bottom
                         messages.forEach(m => {
                             const role = m.role === 'bot' ? 'agent' : 'user';
-                            appendMessage(m.content, role, m.timestamp);
+                            appendMessage(m.content, role, m.timestamp, true);
                         });
+                        chatBody.scrollTop = chatBody.scrollHeight;
                     } else {
                         appendMessage('Hello! How can I help you today?', 'agent');
                     }
@@ -187,7 +233,6 @@
 
             chatBody.innerHTML = '';
 
-            // Countdown message bubble with live update
             const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const countdownMsg = document.createElement('div');
             countdownMsg.className = 'message agent reconnecting';
@@ -218,18 +263,28 @@
         }
 
         function showTypingLoader() {
+            isBotTyping = true;
+            userHasScrolledUp = false;
             const loader = document.createElement('div');
-            loader.className = 'message agent';
             loader.id = 'typing-loader';
             loader.innerHTML = `
-                <div class="bubble typing-bubble">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
+                <div class="chat-loader">
+                    <div class="chat-loader-avatar"></div>
+                    <div class="chat-loader-content">
+                        <div class="chat-loader-line large"></div>
+                        <div class="chat-loader-line"></div>
+                        <div class="chat-loader-line small"></div>
+                    </div>
                 </div>`;
             chatBody.appendChild(loader);
             chatBody.scrollTop = chatBody.scrollHeight;
             return loader;
+        }
+
+        function removeTypingLoader(loader) {
+            isBotTyping = false;
+            scrollTypingIndicator.classList.remove('visible');
+            loader.remove();
         }
 
         async function sendMessage() {
@@ -250,7 +305,7 @@
                 });
 
                 const data = await res.json();
-                loader.remove();
+                removeTypingLoader(loader);
 
                 if (data.isSuccess) {
                     appendMessage(data.answer, 'agent');
@@ -259,7 +314,7 @@
                     appendMessage(`Sorry, something went wrong: ${errors}`, 'agent');
                 }
             } catch (err) {
-                loader.remove();
+                removeTypingLoader(loader);
                 appendMessage('Unable to reach the server. Please try again.', 'agent');
             }
 
@@ -268,7 +323,6 @@
 
         sendBtn.addEventListener('click', sendMessage);
         chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
-
         resetBtn.addEventListener('click', resetChat);
 
         initSession();

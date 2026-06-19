@@ -28,8 +28,8 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow:
-        0 20px 60px rgba(1, 101, 255, .08);
+    box-shadow: 0 20px 60px rgba(1, 101, 255, .08);
+    position: relative;
 }
 
 .chat-header {
@@ -388,48 +388,39 @@ body {
     display: flex;
     gap: 16px;
     align-items: flex-start;
+    padding: 16px 0;
 }
-
 
 .chat-loader-avatar {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: #dbe8ff;
+    background: rgba(255, 255, 255, 0.12);
+    flex-shrink: 0;
 }
-
 
 .chat-loader-content {
-    width: 300px;
+    flex: 1;
+    max-width: 340px;
 }
-
 
 .chat-loader-line {
     height: 14px;
     border-radius: 20px;
     margin-bottom: 12px;
-    background:
-        linear-gradient(90deg,
-            #dbe8ff 25%,
-            #ffffff 50%,
-            #dbe8ff 75%);
-
+    width: 80%;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.06) 25%,
+        rgba(255, 255, 255, 0.18) 50%,
+        rgba(255, 255, 255, 0.06) 75%
+    );
     background-size: 400% 100%;
-
     animation: shimmer 1.4s infinite;
 }
 
-
-.large {
-
-    width: 100%;
-}
-
-
-.small {
-
-    width: 60%;
-}
+.chat-loader-line.large { width: 100%; }
+.chat-loader-line.small { width: 50%; }
 
 
 @keyframes shimmer {
@@ -477,6 +468,53 @@ body {
     100% {
         transform: translateY(0);
     }
+}
+
+/* ── Scroll-up typing indicator ─────────────────────────────────────────── */
+
+.scroll-typing-indicator {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    position: absolute;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 176, 255, 0.18);
+    border: 1px solid rgba(0, 176, 255, 0.4);
+    backdrop-filter: blur(10px);
+    color: #ffffff;
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: 24px;
+    cursor: pointer;
+    z-index: 10;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0, 176, 255, 0.2);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+}
+
+.scroll-typing-indicator.visible {
+    display: flex;
+    opacity: 1;
+    animation: floatUp 0.3s ease forwards;
+}
+
+.scroll-typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00B0FF;
+    animation: typingBounce 1.2s infinite ease-in-out;
+}
+
+.scroll-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.scroll-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes floatUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ── Markdown styles inside bot bubble ─────────────────────────────────── */

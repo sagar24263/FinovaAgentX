@@ -5,11 +5,12 @@ Uses langgraph's prebuilt react agent for plan, insurer, and calculation tools.
 
 from typing import Dict
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.prebuilt import create_react_agent
 
 from app.agents.state import AgentState
 from app.prompts.generic_prompt import GENERIC_AGENT_SYSTEM_PROMPT
+from app.services.knowledge_base_service import rag_search
 from app.services.llm_service import get_llm_service
 from app.tools.calculation_tools import GetFutureValueTool, GetRequiredInvestmentTool
 from app.tools.insurer_tools import GetInsurerInfoTool
@@ -58,6 +59,19 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         agent = _build_react_agent()
 
         messages = []
+
+        # RAG: retrieve relevant KB context and prepend as a system message
+        rag_context = rag_search(query, kb_type="generic", top_k=2)
+        if rag_context:
+            # messages.append(SystemMessage(content=(
+            #     "Use the following knowledge base context to help answer the user's question. "
+            #     "If the context is relevant, prefer it over general knowledge.\n\n"
+            #     f"--- Knowledge Base Context ---\n{rag_context}\n--- End Context ---"
+            # )))
+            
+            messages = [SystemMessage(content=rag_context)] if rag_context else []
+            logger.info("RAG context injected into generic agent prompt")
+
         for msg in chat_history[-10:]:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))
