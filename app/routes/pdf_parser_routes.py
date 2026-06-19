@@ -15,7 +15,7 @@ router = APIRouter()
 pdf_parser_service = PdfParserService()
 
 _PDF_MAGIC = b"%PDF"
-_CHUNK_SIZE = 1024 * 1024  # 1 MB
+_CHUNK_SIZE = 1024 * 1024
 
 
 @router.post("/parse-pdf", response_model=PdfParserResponse)
@@ -26,10 +26,7 @@ async def parse_pdf(
     insurer_id: Optional[int] = Form(None, description="Optional insurer ID"),
 ):
     if file.content_type != "application/pdf":
-        return PdfParserResponse(
-            isSuccess=False,
-            errors=["Only PDF files are accepted"],
-        )
+        return PdfParserResponse(isSuccess=False, errors=["Only PDF files are accepted"])
 
     tmp_path: str | None = None
     try:
@@ -42,22 +39,16 @@ async def parse_pdf(
                     break
                 if first_chunk:
                     if not chunk.startswith(_PDF_MAGIC):
-                        return PdfParserResponse(
-                            isSuccess=False,
-                            errors=["File does not appear to be a valid PDF"],
-                        )
+                        return PdfParserResponse(isSuccess=False, errors=["File is not a valid PDF"])
                     first_chunk = False
                 tmp.write(chunk)
 
-        source_pdf = os.path.basename(file.filename or os.path.basename(tmp_path))
-        logger.info(f"PDF parsing '{source_pdf}' — nfo_name='{nfo_name}', insurer='{insurer_name}'")
+        source_pdf = os.path.basename(file.filename or "upload.pdf")
+        logger.info(f"Processing PDF: {source_pdf}")
 
-        pages = await run_in_threadpool(pdf_parser_service.parse, tmp_path)
-        chunks = await run_in_threadpool(pdf_parser_service.chunk, pages)
         entries = await run_in_threadpool(
-            pdf_parser_service.finalize,
-            chunks,
-            pages,
+            pdf_parser_service.process,
+            tmp_path,
             source_pdf,
             nfo_name,
             insurer_name,
@@ -65,16 +56,12 @@ async def parse_pdf(
         )
 
         if not entries:
-            logger.warning(f"No content extracted from '{source_pdf}'")
-            return PdfParserResponse(
-                isSuccess=False,
-                errors=["No extractable text found — document may be a scanned image"],
-            )
+            return PdfParserResponse(isSuccess=False, errors=["No content extracted from PDF"])
 
         return PdfParserResponse(isSuccess=True, data=entries)
 
     except Exception as e:
-        logger.error(f"PDF parsing failed for '{file.filename}': {e}", exc_info=True)
+        logger.error(f"PDF parsing failed: {e}", exc_info=True)
         return PdfParserResponse(isSuccess=False, errors=[str(e)])
 
     finally:
