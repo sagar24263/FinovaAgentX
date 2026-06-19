@@ -8,13 +8,36 @@ from langgraph.prebuilt import create_react_agent
 from app.agents.state import AgentState
 from app.prompts.nfo_funds_prompt import NFO_FUNDS_AGENT_SYSTEM_PROMPT
 from app.services.llm_service import get_llm_service
-from app.tools.nfo_tools import GetActiveNfosTool
+from app.tools.nfo import GetActiveNfosTool, GetNfoTimelineTool, GetNfoListingReturnsTool, GetClosedFundsTool
+from app.tools.funds import (
+    GetFundDetailsTool,
+    GetPlanFundPerformanceTool,
+    GetFundAssetClassBreakupTool,
+    GetFundHoldingSectorBreakupTool,
+    GetInsurerTopFundsTool,
+    GetPlanFundsSplitByTypeTool,
+    CompareFundsTool,
+)
+from app.tools.insurer import GetInsurerInfoTool
 from app.utils.logger import get_logger
 
 logger = get_logger("nfo_funds_agent")
 
 # Tools available to this agent
-tools = [GetActiveNfosTool()]
+tools = [
+    GetActiveNfosTool(),
+    GetNfoTimelineTool(),
+    GetNfoListingReturnsTool(),
+    GetClosedFundsTool(),
+    GetFundDetailsTool(),
+    GetPlanFundPerformanceTool(),
+    GetFundAssetClassBreakupTool(),
+    GetFundHoldingSectorBreakupTool(),
+    GetInsurerInfoTool(),
+    GetInsurerTopFundsTool(),
+    GetPlanFundsSplitByTypeTool(),
+    CompareFundsTool(),
+]
 
 
 def _build_react_agent():
