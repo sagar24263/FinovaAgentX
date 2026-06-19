@@ -62,9 +62,10 @@ class LLMService:
         model: str = "gemini-3.1-flash-lite",
         temperature: float = 0.3,
         max_tokens: int = 4000,
+        timeout: int = 30,
     ) -> ChatGoogleGenerativeAI:
         """Get a cached Gemini LLM instance."""
-        cache_key = f"{model}_{temperature}_{max_tokens}"
+        cache_key = f"{model}_{temperature}_{max_tokens}_{timeout}"
 
         if cache_key in self._cache:
             return self._cache[cache_key]
@@ -77,7 +78,7 @@ class LLMService:
             credentials=self._credentials,
             temperature=temperature,
             max_tokens=max_tokens,
-            timeout=30,
+            timeout=timeout,
         )
 
         self._cache[cache_key] = llm
