@@ -28,6 +28,9 @@ _client_key: Optional[Tuple[str, Optional[str]]] = None
 
 QDRANT_TIMEOUT = int(os.getenv("QDRANT_TIMEOUT", "30"))
 QDRANT_SEND_API_KEY = os.getenv("QDRANT_SEND_API_KEY", "true").lower() in ("1", "true", "yes")
+_qdrant_port_raw = os.getenv("QDRANT_PORT")
+QDRANT_PORT: Optional[int] = int(_qdrant_port_raw) if _qdrant_port_raw and _qdrant_port_raw.isdigit() else None
+QDRANT_TRUST_ENV = os.getenv("QDRANT_TRUST_ENV", "true").lower() in ("1", "true", "yes")
 
 
 def _basic_authorization_header(username: str, password: str) -> str:
@@ -42,7 +45,6 @@ def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, A
     kwargs: Dict[str, Any] = {
         "url": url,
         "timeout": QDRANT_TIMEOUT,
-        "check_compatibility": False,
     }
 
     if settings.qdrant_port:
@@ -70,6 +72,51 @@ def _build_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, A
     return kwargs
 
 
+def _str_or_none(val: Optional[str]) -> Optional[str]:
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s or None
+
+
+def _resolve_basic(api_key_override: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    key = (api_key_override if api_key_override is not None else QDRANT_API_KEY) or None
+    key = key.strip() if isinstance(key, str) else key
+    u = _str_or_none(QDRANT_BASIC_USER)
+    pw = _str_or_none(QDRANT_BASIC_PASSWORD)
+    if u and pw is None and key:
+        pw = key
+    return u, pw
+
+def qdrant_client_kwargs(url: str, api_key: Optional[str] = None) -> Dict[str, Any]:
+    """Kwargs for ``QdrantClient`` — nginx Basic via ``headers``, Qdrant via ``api_key``."""
+    url = url.strip().rstrip("/")
+    kwargs: Dict[str, Any] = {
+        "url": url,
+        "timeout": QDRANT_TIMEOUT,
+    }
+    if QDRANT_PORT is not None:
+        kwargs["port"] = QDRANT_PORT
+    if not QDRANT_TRUST_ENV:
+        kwargs["trust_env"] = False
+
+    key = (api_key if api_key is not None else QDRANT_API_KEY) or None
+    key = key.strip() if isinstance(key, str) else key
+    bu, bp = _resolve_basic(api_key)
+
+    headers: Dict[str, str] = {}
+    if bu and bp:
+        headers["Authorization"] = _basic_authorization_header(bu, bp)
+    if headers:
+        kwargs["headers"] = headers
+    if key and QDRANT_SEND_API_KEY:
+        kwargs["api_key"] = key
+    return kwargs
+
+def create_qdrant_client(url: Optional[str] = None, api_key: Optional[str] = None) -> QdrantClient:
+    resolved = (url if url is not None else QDRANT_URL).strip().rstrip("/")
+    return QdrantClient(**qdrant_client_kwargs(resolved, api_key))
+
 def get_qdrant_client(url: Optional[str] = None, api_key: Optional[str] = None) -> QdrantClient:
     """Thread-safe cached Qdrant client. Recreated when url/api_key changes."""
     global _client, _client_key
@@ -84,7 +131,7 @@ def get_qdrant_client(url: Optional[str] = None, api_key: Optional[str] = None) 
                     _client.close()
                 except Exception:
                     pass
-            _client = QdrantClient(**_build_client_kwargs(resolved, api_key))
+            _client = create_qdrant_client(resolved, api_key)
             _client_key = new_key
             logger.info("Qdrant client connected")
         return _client
