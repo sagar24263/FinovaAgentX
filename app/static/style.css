@@ -226,12 +226,10 @@ body {
 
 
 .time {
-
     margin-top: 12px;
-
     font-size: 11px;
-
     opacity: .75;
+    text-align: right;
 }
 
 .chat-footer {

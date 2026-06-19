@@ -75,7 +75,7 @@ class OnboardingService:
             messages.append(MessageRecord(
                 role=doc.get("role", ""),
                 content=doc.get("content", ""),
-                timestamp=doc.get("timestamp").isoformat() if doc.get("timestamp") else "",
+                timestamp=doc.get("timestamp").isoformat() + "Z" if doc.get("timestamp") else "",
             ))
         return messages
 

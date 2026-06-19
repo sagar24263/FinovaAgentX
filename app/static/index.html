@@ -90,10 +90,18 @@
             return loader;
         }
 
+        function formatIST(timestamp) {
+            const date = timestamp ? new Date(timestamp) : new Date();
+            return date.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: 'Asia/Kolkata'
+            });
+        }
+
         function appendMessage(text, role, timestamp) {
-            const time = timestamp
-                ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const time = formatIST(timestamp);
             const content = role === 'agent' ? marked.parse(text) : text;
             const msg = document.createElement('div');
             msg.className = `message ${role}`;
