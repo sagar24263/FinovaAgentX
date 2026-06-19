@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     qdrant_url: str = ""
     qdrant_port: int = 443
     qdrant_basic_user: str = ""
+    # Gemini Service Account
+    gemini_project_id: str = ""
+    gemini_client_email: str = ""
+    gemini_client_id: str = ""
+    gemini_auth_uri: str = ""
+    gemini_token_uri: str = ""
+    gemini_auth_provider_cert_url: str = ""
+    gemini_client_cert_url: str = ""
+    gemini_universe_domain: str = ""
 
 
 @lru_cache()
