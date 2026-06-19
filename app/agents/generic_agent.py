@@ -1,66 +1,104 @@
 """
 Generic Investment Agent — handles general investment queries.
-Uses Gemini LLM directly (no tools yet).
+Uses langgraph's prebuilt react agent for plan, insurer, and calculation tools.
 """
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from typing import Dict
+
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.prebuilt import create_react_agent
 
 from app.agents.state import AgentState
 from app.prompts.generic_prompt import GENERIC_AGENT_SYSTEM_PROMPT
 from app.services.llm_service import get_llm_service
+from app.tools.calculation_tools import GetFutureValueTool, GetRequiredInvestmentTool
+from app.tools.insurer_tools import GetInsurerInfoTool
+from app.tools.plan_tools import (
+    ComparePlansTool,
+    GetPlanDetailsTool,
+    GetPlansByInsurerTool,
+    GetTopPlansTool,
+)
 from app.utils.logger import get_logger
 
 logger = get_logger("generic_agent")
 
+tools = [
+    GetTopPlansTool(),
+    GetPlanDetailsTool(),
+    GetInsurerInfoTool(),
+    ComparePlansTool(),
+    GetPlansByInsurerTool(),
+    GetRequiredInvestmentTool(),
+    GetFutureValueTool(),
+]
+
+
+def _build_react_agent():
+    llm = get_llm_service().get_llm(
+        model="gemini-3.1-flash-lite",
+        temperature=0.35,
+        max_tokens=4000,
+    )
+    return create_react_agent(llm, tools, prompt=GENERIC_AGENT_SYSTEM_PROMPT)
+
 
 async def run_generic_agent(state: AgentState) -> AgentState:
-    """
-    LangGraph node: run the generic investment agent.
-    """
+    """LangGraph node: run the generic investment agent."""
     query = state["query"]
     chat_history = state.get("chat_history", [])
 
     logger.info(f"Generic Agent processing: {query[:80]!r}")
 
-    # Track that we attempted this agent
     attempted = state.get("attempted_agents", [])
     attempted.append("generic_investment")
     state["attempted_agents"] = attempted
 
     try:
-        llm = get_llm_service().get_llm(
-            model="gemini-3.1-flash-lite",
-            temperature=0.35,
-            max_tokens=4000,
-        )
+        agent = _build_react_agent()
 
-        # Build messages
-        messages = [SystemMessage(content=GENERIC_AGENT_SYSTEM_PROMPT)]
-
-        # Add chat history
+        messages = []
         for msg in chat_history[-10:]:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))
             elif msg["role"] == "assistant":
                 messages.append(AIMessage(content=msg["content"]))
-
-        # Add current query
         messages.append(HumanMessage(content=query))
 
-        # Call LLM
-        response = await llm.ainvoke(messages)
+        result = await agent.ainvoke({"messages": messages})
 
-        # Handle content as list of blocks (langchain-google-genai 4.x)
-        raw_content = response.content
-        if isinstance(raw_content, list):
-            response_content = "".join(
-                block.get("text", "") if isinstance(block, dict) else str(block)
-                for block in raw_content
-            ).strip()
-        else:
-            response_content = raw_content
+        final_messages = result.get("messages", [])
+        response_content = ""
+        tools_used = []
 
-        # Confidence check — LLM signals with [CANNOT_ANSWER] tag
+        # Build tool call records: match AI tool_calls with ToolMessage responses
+        ai_tool_calls: Dict[str, Dict] = {}
+        for msg in final_messages:
+            if msg.type == "ai" and getattr(msg, "tool_calls", None):
+                for tc in msg.tool_calls:
+                    ai_tool_calls[tc["id"]] = {
+                        "tool": tc["name"],
+                        "input": tc["args"],
+                        "output": None,
+                    }
+        for msg in final_messages:
+            if getattr(msg, "type", None) == "tool" and getattr(msg, "name", None):
+                tools_used.append(msg.name)
+                if msg.tool_call_id in ai_tool_calls:
+                    ai_tool_calls[msg.tool_call_id]["output"] = msg.content
+
+        for msg in reversed(final_messages):
+            if hasattr(msg, "content") and msg.type == "ai" and msg.content:
+                raw_content = msg.content
+                if isinstance(raw_content, list):
+                    response_content = "".join(
+                        block.get("text", "") if isinstance(block, dict) else str(block)
+                        for block in raw_content
+                    ).strip()
+                else:
+                    response_content = raw_content
+                break
+
         can_answer = "[CANNOT_ANSWER]" not in response_content
         if not can_answer:
             response_content = response_content.replace("[CANNOT_ANSWER]", "").strip()
@@ -70,8 +108,9 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         state["follow_up_questions"] = []
         state["metadata"] = {
             "agent_type": "generic_investment",
-            "tools_used": [],
+            "tools_used": list(dict.fromkeys(tools_used)),
         }
+        state["tool_calls"] = list(ai_tool_calls.values())
 
         logger.info(f"Generic Agent done. can_answer={can_answer}")
 
@@ -81,5 +120,6 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         state["can_answer"] = False
         state["follow_up_questions"] = []
         state["metadata"] = {"agent_type": "generic_investment", "error": str(e)}
+        state["tool_calls"] = []
 
     return state
