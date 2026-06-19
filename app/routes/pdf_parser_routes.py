@@ -1,11 +1,11 @@
 import os
 import tempfile
+from typing import Optional
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.concurrency import run_in_threadpool
 
 from app.models.pdf_parser import PdfParserResponse
-from app.services.insurer_resolver_service import InsurerResolverService
 from app.services.pdf_parser_service import PdfParserService
 from app.utils.logger import get_logger
 
@@ -13,14 +13,18 @@ logger = get_logger("pdf_parser_routes")
 
 router = APIRouter()
 pdf_parser_service = PdfParserService()
-insurer_resolver = InsurerResolverService()
 
 _PDF_MAGIC = b"%PDF"
 _CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
 @router.post("/parse-pdf", response_model=PdfParserResponse)
-async def parse_pdf(file: UploadFile = File(...)):
+async def parse_pdf(
+    file: UploadFile = File(...),
+    nfo_name: str = Form(..., description="Fund/NFO name (e.g. 'HDFC Life Top 500 Smart Value 50 Fund')"),
+    insurer_name: str = Form(..., description="Insurer name (e.g. 'HDFC Life')"),
+    insurer_id: Optional[int] = Form(None, description="Optional insurer ID"),
+):
     if file.content_type != "application/pdf":
         return PdfParserResponse(
             isSuccess=False,
@@ -29,9 +33,8 @@ async def parse_pdf(file: UploadFile = File(...)):
 
     tmp_path: str | None = None
     try:
-        # Stream upload to a temp file instead of loading the whole PDF into RAM.
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp_path   = tmp.name
+            tmp_path = tmp.name
             first_chunk = True
             while True:
                 chunk = await file.read(_CHUNK_SIZE)
@@ -47,12 +50,18 @@ async def parse_pdf(file: UploadFile = File(...)):
                 tmp.write(chunk)
 
         source_pdf = os.path.basename(file.filename or os.path.basename(tmp_path))
-        logger.info(f"PDF saved temporarily at {tmp_path}, parsing '{source_pdf}'")
+        logger.info(f"PDF parsing '{source_pdf}' — nfo_name='{nfo_name}', insurer='{insurer_name}'")
 
-        pages   = await run_in_threadpool(pdf_parser_service.parse, tmp_path)
-        chunks  = await run_in_threadpool(pdf_parser_service.chunk, pages)
+        pages = await run_in_threadpool(pdf_parser_service.parse, tmp_path)
+        chunks = await run_in_threadpool(pdf_parser_service.chunk, pages)
         entries = await run_in_threadpool(
-            pdf_parser_service.finalize, chunks, pages, source_pdf, insurer_resolver
+            pdf_parser_service.finalize,
+            chunks,
+            pages,
+            source_pdf,
+            nfo_name,
+            insurer_name,
+            insurer_id,
         )
 
         if not entries:

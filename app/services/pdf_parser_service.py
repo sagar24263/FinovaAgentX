@@ -124,23 +124,25 @@ class PdfParserService:
         chunks:            List[Dict[str, Any]],
         pages:             List[Dict[str, Any]],
         source_pdf:        str,
-        insurer_resolver:  Optional[Any] = None,
+        nfo_name:          str,
+        insurer_name:      str,
+        insurer_id:        Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Stage 3 – enrich each chunk into the final KB entry shape.
 
         Args:
-            chunks:           output of chunk()
-            pages:            output of parse()
-            source_pdf:       original filename of the uploaded PDF
-            insurer_resolver: optional InsurerResolverService instance; when
-                              provided, insurer_name and insurer_id are resolved
-                              from the product name via GetInsurerMaster.
+            chunks:       output of chunk()
+            pages:        output of parse()
+            source_pdf:   original filename of the uploaded PDF
+            nfo_name:     fund/product name provided by the user
+            insurer_name: insurer name provided by the user
+            insurer_id:   optional insurer ID provided by the user
 
         Returns:
             [
                 {
-                    "term": "<Product Name> (deck section X/Y)",
+                    "term": "<NFO Name> (deck section X/Y)",
                     "content": str,
                     "keywords": [str, ...],
                     "product_type": "nfo",
@@ -150,7 +152,7 @@ class PdfParserService:
                         "chunk_total": int,
                         "nfo_name": str,
                         "section_heading": str,
-                        "extraction_strategy": "layout",
+                        "extraction_strategy": "llm",
                         "page_numbers": [int, ...],
                         "insurer_name": str,
                         "insurer_id": int | None,
@@ -159,16 +161,10 @@ class PdfParserService:
                 }
             ]
         """
-        product_name = self._infer_product_name(pages, source_pdf)
-
-        # Resolve insurer once for the whole document.
-        insurer_name: str           = ""
-        insurer_id:   Optional[int] = None
-        if insurer_resolver is not None:
-            insurer_name, insurer_id = insurer_resolver.resolve(product_name)
+        product_name = nfo_name.strip()
 
         logger.info(
-            f"Finalizing {len(chunks)} chunks — product='{product_name}'  "
+            f"Finalizing {len(chunks)} chunks — nfo_name='{product_name}'  "
             f"insurer='{insurer_name}' (id={insurer_id})  source='{source_pdf}'"
         )
 
@@ -211,7 +207,7 @@ class PdfParserService:
                     "source_pdf":          source_pdf,
                     "chunk_index":         idx,
                     "chunk_total":         total,
-                    "nfo_name":            _build_nfo_name(insurer_name, product_name),
+                    "nfo_name":            product_name,
                     "section_heading":     heading,
                     "extraction_strategy": "llm",
                     "page_numbers":        page_nums,
