@@ -49,7 +49,16 @@ async def run_generic_agent(state: AgentState) -> AgentState:
 
         # Call LLM
         response = await llm.ainvoke(messages)
-        response_content = response.content
+
+        # Handle content as list of blocks (langchain-google-genai 4.x)
+        raw_content = response.content
+        if isinstance(raw_content, list):
+            response_content = "".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in raw_content
+            ).strip()
+        else:
+            response_content = raw_content
 
         # Confidence check — does the response contain uncertainty markers?
         can_answer = True

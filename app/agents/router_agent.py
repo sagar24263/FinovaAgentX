@@ -44,14 +44,26 @@ async def classify_intent(state: AgentState) -> AgentState:
 
     try:
         response = await llm.ainvoke(messages)
-        intent = response.content.strip().lower()
 
-        # Validate — only allow known intents
-        if intent not in ("generic_investment", "nfo_funds"):
-            logger.warning(f"Unknown intent '{intent}', defaulting to generic_investment")
+        # langchain-google-genai 4.x may return content as list of blocks
+        raw_content = response.content
+        if isinstance(raw_content, list):
+            raw_intent = "".join(
+                block.get("text", "") if isinstance(block, dict) else str(block)
+                for block in raw_content
+            ).strip().lower()
+        else:
+            raw_intent = raw_content.strip().lower()
+
+        raw_intent = raw_intent.replace('"', '').replace("'", '')
+
+        # Extract just the intent keyword from the response
+        if "nfo_funds" in raw_intent:
+            intent = "nfo_funds"
+        else:
             intent = "generic_investment"
 
-        logger.info(f"Intent classified: {intent}")
+        logger.info(f"Intent classified: {intent} (raw: {raw_intent!r})")
 
     except Exception as e:
         logger.error(f"Intent classification failed: {e}, defaulting to generic_investment")

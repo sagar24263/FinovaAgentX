@@ -30,7 +30,7 @@ class LLMService:
         self._credentials = self._build_credentials()
 
     def _build_credentials(self):
-        """Build Google service account credentials."""
+        """Build Google service account credentials with proper scopes."""
         if not GEMINI_PRIVATE_KEY or not GEMINI_PROJECT_ID:
             logger.warning("Gemini credentials not configured")
             return None
@@ -51,7 +51,11 @@ class LLMService:
             "universe_domain": GEMINI_UNIVERSE_DOMAIN,
         }
 
-        return service_account.Credentials.from_service_account_info(credentials_dict)
+        scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_dict, scopes=scopes
+        )
+        return credentials
 
     def get_llm(
         self,
