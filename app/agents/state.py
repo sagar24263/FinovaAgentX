@@ -24,3 +24,6 @@ class AgentState(TypedDict):
 
     # Fallback tracking
     attempted_agents: List[str]
+
+    # Tool call details
+    tool_calls: List[Dict[str, Any]]

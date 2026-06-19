@@ -57,9 +57,24 @@ async def run_nfo_funds_agent(state: AgentState) -> AgentState:
         # Invoke — tool calling loop is handled automatically
         result = await agent.ainvoke({"messages": messages})
 
-        # Extract final response from the last AI message
+        # Extract final response and tool call details
         final_messages = result.get("messages", [])
         response_content = ""
+
+        ai_tool_calls: dict = {}
+        for msg in final_messages:
+            if msg.type == "ai" and getattr(msg, "tool_calls", None):
+                for tc in msg.tool_calls:
+                    ai_tool_calls[tc["id"]] = {
+                        "tool": tc["name"],
+                        "input": tc["args"],
+                        "output": None,
+                    }
+        for msg in final_messages:
+            if getattr(msg, "type", None) == "tool" and getattr(msg, "tool_call_id", None):
+                if msg.tool_call_id in ai_tool_calls:
+                    ai_tool_calls[msg.tool_call_id]["output"] = msg.content
+
         for msg in reversed(final_messages):
             if hasattr(msg, "content") and msg.type == "ai" and msg.content:
                 raw_content = msg.content
@@ -83,8 +98,9 @@ async def run_nfo_funds_agent(state: AgentState) -> AgentState:
         state["follow_up_questions"] = []
         state["metadata"] = {
             "agent_type": "nfo_funds",
-            "tools_used": [],
+            "tools_used": list({tc["tool"] for tc in ai_tool_calls.values()}),
         }
+        state["tool_calls"] = list(ai_tool_calls.values())
 
         logger.info(f"NFO/Funds Agent done. can_answer={can_answer}")
 
@@ -94,5 +110,6 @@ async def run_nfo_funds_agent(state: AgentState) -> AgentState:
         state["can_answer"] = False
         state["follow_up_questions"] = []
         state["metadata"] = {"agent_type": "nfo_funds", "error": str(e)}
+        state["tool_calls"] = []
 
     return state

@@ -51,6 +51,7 @@ class ChatService:
             "follow_up_questions": [],
             "metadata": {},
             "attempted_agents": [],
+            "tool_calls": [],
         }
 
         result = await agent_graph.ainvoke(initial_state)
@@ -75,6 +76,7 @@ class ChatService:
             intent=result.get("intent", ""),
             can_answer=result.get("can_answer", False),
             attempted_agents=result.get("attempted_agents", []),
+            tool_calls=result.get("tool_calls", []),
         )
 
         return response
@@ -87,6 +89,7 @@ class ChatService:
         intent: str = "",
         can_answer: bool = False,
         attempted_agents: List[str] = [],
+        tool_calls: List[Dict] = [],
     ) -> None:
         collection = get_collection(collection_name=USER_MESSAGES_COLLECTION)
         if collection is None:
@@ -103,6 +106,7 @@ class ChatService:
         if role == "bot":
             doc["can_answer"] = can_answer
             doc["attempted_agents"] = attempted_agents
+            doc["tool_calls"] = tool_calls
 
         try:
             collection.insert_one(doc)

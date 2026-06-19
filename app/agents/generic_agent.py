@@ -3,6 +3,8 @@ Generic Investment Agent — handles general investment queries.
 Uses langgraph's prebuilt react agent for plan, insurer, and calculation tools.
 """
 
+from typing import Dict
+
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.prebuilt import create_react_agent
 
@@ -69,9 +71,21 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         response_content = ""
         tools_used = []
 
+        # Build tool call records: match AI tool_calls with ToolMessage responses
+        ai_tool_calls: Dict[str, Dict] = {}
+        for msg in final_messages:
+            if msg.type == "ai" and getattr(msg, "tool_calls", None):
+                for tc in msg.tool_calls:
+                    ai_tool_calls[tc["id"]] = {
+                        "tool": tc["name"],
+                        "input": tc["args"],
+                        "output": None,
+                    }
         for msg in final_messages:
             if getattr(msg, "type", None) == "tool" and getattr(msg, "name", None):
                 tools_used.append(msg.name)
+                if msg.tool_call_id in ai_tool_calls:
+                    ai_tool_calls[msg.tool_call_id]["output"] = msg.content
 
         for msg in reversed(final_messages):
             if hasattr(msg, "content") and msg.type == "ai" and msg.content:
@@ -96,6 +110,7 @@ async def run_generic_agent(state: AgentState) -> AgentState:
             "agent_type": "generic_investment",
             "tools_used": list(dict.fromkeys(tools_used)),
         }
+        state["tool_calls"] = list(ai_tool_calls.values())
 
         logger.info(f"Generic Agent done. can_answer={can_answer}")
 
@@ -105,5 +120,6 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         state["can_answer"] = False
         state["follow_up_questions"] = []
         state["metadata"] = {"agent_type": "generic_investment", "error": str(e)}
+        state["tool_calls"] = []
 
     return state
