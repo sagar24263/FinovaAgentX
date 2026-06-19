@@ -276,7 +276,40 @@ async def get_nfo_listing_returns(fund_name: str, insurer_name: Optional[str] = 
 
 
 async def get_closed_funds(insurer_name: Optional[str] = None, fund_name: Optional[str] = None) -> str:
-    """Check which NFO funds are closed for subscription."""
+    """Check which NFO funds are closed for subscription using local data file."""
+    import os
+    from app.utils.fuzzy_matcher import fuzzy_score
+
     logger.info(f"Getting closed funds: insurer={insurer_name}, fund={fund_name}")
-    # TODO: Implement from closed_funds.json or API when available
-    return json.dumps({"message": "Closed funds data not yet configured."})
+
+    # Load closed funds data
+    data_path = os.path.join(os.path.dirname(__file__), "..", "data", "closed_funds.json")
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            closed_funds = json.load(f)
+    except FileNotFoundError:
+        return json.dumps({"error": "Closed funds data file not found."})
+    except json.JSONDecodeError:
+        return json.dumps({"error": "Closed funds data file is invalid."})
+
+    results = []
+    for entry in closed_funds:
+        # Filter by insurer
+        if insurer_name:
+            if fuzzy_score(insurer_name.lower(), entry["insurer"].lower()) < 60:
+                continue
+        # Filter by fund name
+        if fund_name:
+            if fuzzy_score(fund_name.lower(), entry["fund_name"].lower()) < 65:
+                continue
+        results.append(entry)
+
+    if not results:
+        if fund_name:
+            return f"'{fund_name}' is not in the closed funds list — it may still be open or was never an NFO."
+        return "No closed funds found matching the filter."
+
+    lines = [f"Closed funds ({len(results)}):", ""]
+    for r in results:
+        lines.append(f"- {r['insurer']} | {r['fund_name']} | Closed: {r['closed_date']}")
+    return "\n".join(lines)

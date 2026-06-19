@@ -38,8 +38,9 @@ class GetClosedFundsInput(BaseModel):
 class GetActiveNfosTool(BaseTool):
     name: str = "get_active_nfos"
     description: str = (
-        "Get all currently active NFOs across product lanes: Growth/ULIP, Pension, and Gift. "
-        "Use when user asks about active/open/running NFOs."
+        "Get NFOs that are CURRENTLY OPEN for subscription right now. "
+        "Use ONLY when user asks 'what NFOs are open/active/available right now'. "
+        "Do NOT use for 'recent NFOs' or 'NFOs launched recently' — use get_nfo_timeline for that."
     )
     args_schema: Type[BaseModel] = GetActiveNfosInput
 
@@ -53,8 +54,9 @@ class GetActiveNfosTool(BaseTool):
 class GetNfoTimelineTool(BaseTool):
     name: str = "get_nfo_timeline"
     description: str = (
-        "NFO launch-month timeline. Shows which funds were launched as NFOs, their listing returns. "
-        "Use for 'NFO history', 'what launched in April 2025', 'NFO timeline for HDFC'."
+        "Get NFO launch history — which funds were launched as NFOs and when. "
+        "Use for 'recent NFOs', 'NFOs launched this year', 'what launched last month', "
+        "'NFO history', 'timeline for HDFC NFOs'. Shows fund name, insurer, type, and listing returns."
     )
     args_schema: Type[BaseModel] = NfoTimelineInput
 
