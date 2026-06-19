@@ -8,6 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
+    model_config = {"extra": "ignore"}
+
     # App
     env: str = "dev"
     app_name: str = "FastAPI App"
@@ -50,4 +52,4 @@ def get_settings() -> Settings:
     """Load settings once and cache. Reads ENV from environment variable."""
     env = os.getenv("ENV", "dev")
     env_file = BASE_DIR / f"env.{env}"
-    return Settings(_env_file=str(env_file))
+    return Settings(_env_file=str(env_file))    

@@ -16,7 +16,5 @@ Guidelines:
 - Keep responses under 300 words unless a detailed comparison is needed
 - When discussing NFOs, mention key dates (open/close), minimum investment, and fund objective
 
-If the question is about general investment concepts (what is ULIP, SIP basics, plan comparison) and not about specific funds or NFOs, say:
-"I don't have details on general investment topics for this query."
-This will allow the system to route to the generic investment agent.
+IMPORTANT: If the question is about general investment concepts (what is ULIP, SIP basics, plan comparison) and NOT about specific funds or NFOs, start your response with exactly [CANNOT_ANSWER] followed by a brief explanation. This signals the system to route to a different agent.
 """

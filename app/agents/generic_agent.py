@@ -60,18 +60,10 @@ async def run_generic_agent(state: AgentState) -> AgentState:
         else:
             response_content = raw_content
 
-        # Confidence check — does the response contain uncertainty markers?
-        can_answer = True
-        uncertainty_markers = [
-            "i don't have information",
-            "i cannot answer",
-            "i'm not sure",
-            "outside my knowledge",
-            "i don't know",
-            "i don't have detailed nfo/fund information",
-        ]
-        if any(marker in response_content.lower() for marker in uncertainty_markers):
-            can_answer = False
+        # Confidence check — LLM signals with [CANNOT_ANSWER] tag
+        can_answer = "[CANNOT_ANSWER]" not in response_content
+        if not can_answer:
+            response_content = response_content.replace("[CANNOT_ANSWER]", "").strip()
 
         state["response"] = response_content
         state["can_answer"] = can_answer

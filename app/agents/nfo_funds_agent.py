@@ -1,16 +1,30 @@
 """
 NFO/Funds Agent — handles NFO and fund-specific queries.
-Uses Gemini LLM with NFO/Funds system prompt.
+Uses langgraph's prebuilt react agent for automatic tool calling.
 """
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langgraph.prebuilt import create_react_agent
 
 from app.agents.state import AgentState
 from app.prompts.nfo_funds_prompt import NFO_FUNDS_AGENT_SYSTEM_PROMPT
 from app.services.llm_service import get_llm_service
+from app.tools.nfo_tools import GetActiveNfosTool
 from app.utils.logger import get_logger
 
 logger = get_logger("nfo_funds_agent")
+
+# Tools available to this agent
+tools = [GetActiveNfosTool()]
+
+
+def _build_react_agent():
+    """Build a react agent that handles tool calling automatically."""
+    llm = get_llm_service().get_llm(
+        model="gemini-3.1-flash-lite",
+        temperature=0.3,
+        max_tokens=4000,
+    )
+    return create_react_agent(llm, tools, prompt=NFO_FUNDS_AGENT_SYSTEM_PROMPT)
 
 
 async def run_nfo_funds_agent(state: AgentState) -> AgentState:
@@ -28,50 +42,41 @@ async def run_nfo_funds_agent(state: AgentState) -> AgentState:
     state["attempted_agents"] = attempted
 
     try:
-        llm = get_llm_service().get_llm(
-            model="gemini-3.1-flash-lite",
-            temperature=0.3,
-            max_tokens=4000,
-        )
+        agent = _build_react_agent()
 
-        # Build messages
-        messages = [SystemMessage(content=NFO_FUNDS_AGENT_SYSTEM_PROMPT)]
-
-        # Add chat history
+        # Build input messages
+        from langchain_core.messages import AIMessage, HumanMessage
+        messages = []
         for msg in chat_history[-10:]:
             if msg["role"] == "user":
                 messages.append(HumanMessage(content=msg["content"]))
             elif msg["role"] == "assistant":
                 messages.append(AIMessage(content=msg["content"]))
-
-        # Add current query
         messages.append(HumanMessage(content=query))
 
-        # Call LLM
-        response = await llm.ainvoke(messages)
+        # Invoke — tool calling loop is handled automatically
+        result = await agent.ainvoke({"messages": messages})
 
-        # Handle content as list of blocks (langchain-google-genai 4.x)
-        raw_content = response.content
-        if isinstance(raw_content, list):
-            response_content = "".join(
-                block.get("text", "") if isinstance(block, dict) else str(block)
-                for block in raw_content
-            ).strip()
-        else:
-            response_content = raw_content
+        # Extract final response from the last AI message
+        final_messages = result.get("messages", [])
+        response_content = ""
+        for msg in reversed(final_messages):
+            if hasattr(msg, "content") and msg.type == "ai" and msg.content:
+                raw_content = msg.content
+                if isinstance(raw_content, list):
+                    response_content = "".join(
+                        block.get("text", "") if isinstance(block, dict) else str(block)
+                        for block in raw_content
+                    ).strip()
+                else:
+                    response_content = raw_content
+                break
 
-        # Confidence check
-        can_answer = True
-        uncertainty_markers = [
-            "i don't have information",
-            "i cannot answer",
-            "i'm not sure",
-            "outside my knowledge",
-            "i don't know",
-            "i don't have details on general investment",
-        ]
-        if any(marker in response_content.lower() for marker in uncertainty_markers):
-            can_answer = False
+        # Confidence check — LLM signals with [CANNOT_ANSWER] tag
+        can_answer = "[CANNOT_ANSWER]" not in response_content
+        if not can_answer:
+            # Strip the tag from the response
+            response_content = response_content.replace("[CANNOT_ANSWER]", "").strip()
 
         state["response"] = response_content
         state["can_answer"] = can_answer
